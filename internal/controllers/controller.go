@@ -2,13 +2,19 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
-	"qyx/pkg/start"
+	"ly/pkg/start"
 )
 
 func NewController(
-	helloController *CalculateController,
+	productController *ProductController,
 ) start.Controllers {
 	return func(r *gin.Engine) {
-		r.GET("hello", helloController.Hello)
+		g := r.Group("/api/v1")
+
+		//product
+		product := g.Group("/product")
+		product.GET("/list", productController.GetProductList)
+		product.POST("", productController.CreateProduct)
+		product.PUT("/:id", productController.UpdateProduct)
 	}
 }

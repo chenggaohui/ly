@@ -1,7 +1,7 @@
-package services
+package repositories
 
 import "github.com/google/wire"
 
 var ProviderSet = wire.NewSet(
-	NewProductService,
+	NewProductRepository,
 )

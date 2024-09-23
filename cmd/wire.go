@@ -5,9 +5,11 @@ package main
 
 import (
 	"github.com/google/wire"
-	"qyx/internal/controllers"
-	"qyx/internal/services"
-	"qyx/pkg/start"
+	"ly/config"
+	"ly/internal/controllers"
+	"ly/internal/repositories"
+	"ly/internal/services"
+	"ly/pkg/start"
 )
 
 var providerSet = wire.NewSet(
@@ -15,6 +17,8 @@ var providerSet = wire.NewSet(
 	start.NewGinStart,
 	controllers.ProviderSet,
 	services.ProviderSet,
+	repositories.ProviderSet,
+	config.ProviderSet,
 )
 
 func CreateApp() *start.GinStart {

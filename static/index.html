@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品列表</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .container {
+            padding: 20px;
+        }
+
+        .el-tag.success {
+            background-color: #67c23a;
+            color: white;
+        }
+
+        .el-tag.danger {
+            background-color: #f56c6c;
+            color: white;
+        }
+
+        .el-button--primary {
+            margin-right: 10px;
+        }
+
+        /* Adding spacing to table cells */
+        .el-table td, .el-table th {
+            padding: 12px 20px;
+            font-size: 14px;
+        }
+
+        #productTable {
+            margin-top: 20px;
+            width: 100%;
+            border: 1px solid #ebeef5;
+            border-collapse: collapse;
+        }
+
+        #productTable td, #productTable th {
+            border: 1px solid #ebeef5;
+        }
+
+        .filters {
+            margin-bottom: 20px;
+        }
+
+        .filters .el-input, .filters .el-select {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="container">
+    <h2 class="mb-4">商品列表</h2>
+
+    <!-- 筛选条件 -->
+    <div class="filters">
+        <el-input v-model="nameFilter" placeholder="筛选商品名称" style="width: 200px; display: inline-block;"></el-input>
+        <el-select v-model="statusFilter" placeholder="筛选过期状态" style="width: 200px; display: inline-block;">
+            <el-option label="所有" value=""></el-option>
+            <el-option label="未过期" value="未过期"></el-option>
+            <el-option label="过期" value="过期"></el-option>
+        </el-select>
+
+        <!-- 添加商品按钮 -->
+        <button class="el-button el-button--primary" @click="openAddProductForm">添加商品</button>
+    </div>
+
+    <!-- 商品表格 -->
+    <el-table :data="filteredProducts" id="productTable" style="width: 100%;">
+        <el-table-column prop="name" label="商品名称"></el-table-column>
+        <el-table-column prop="count" label="数量"></el-table-column>
+        <el-table-column prop="production_date" label="生产日期"></el-table-column>
+        <el-table-column prop="shelf_life" label="保质期 (天)"></el-table-column>
+        <el-table-column label="过期标志">
+            <template slot-scope="scope">
+                <el-tag :type="scope.row.is_expired ? 'danger' : 'success'">
+                    {{ scope.row.is_expired ? '过期' : '未过期' }}
+                </el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="expiration_date" label="过期时间"></el-table-column>
+        <el-table-column prop="price" label="价格"></el-table-column>
+        <el-table-column label="操作">
+            <template slot-scope="scope">
+                <el-button type="primary" @click="openEditForm(scope.row)">编辑</el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+
+    <!-- 编辑对话框 -->
+    <el-dialog title="编辑商品" :visible.sync="dialogVisible">
+        <el-form :model="editedProduct">
+            <el-form-item label="商品名称">
+                <el-input v-model="editedProduct.name"></el-input>
+            </el-form-item>
+            <el-form-item label="数量">
+                <el-input type="number" v-model="editedProduct.count"></el-input>
+            </el-form-item>
+            <el-form-item label="生产日期">
+                <el-date-picker type="date" v-model="editedProduct.production_date"></el-date-picker>
+            </el-form-item>
+            <el-form-item label="保质期 (天)">
+                <el-input type="number" v-model="editedProduct.shelf_life"></el-input>
+            </el-form-item>
+            <el-form-item label="价格">
+                <el-input type="number" v-model="editedProduct.price"></el-input>
+            </el-form-item>
+        </el-form>
+        <span slot="footer" class="dialog-footer">
+            <el-button @click="dialogVisible = false">取 消</el-button>
+            <el-button type="primary" @click="updateProduct">确 定</el-button>
+        </span>
+    </el-dialog>
+
+    <!-- 添加对话框 -->
+    <el-dialog title="添加商品" :visible.sync="addDialogVisible">
+        <el-form :model="newProduct">
+            <el-form-item label="商品名称">
+                <el-input v-model="newProduct.name"></el-input>
+            </el-form-item>
+            <el-form-item label="数量">
+                <el-input type="number" v-model="newProduct.count"></el-input>
+            </el-form-item>
+            <el-form-item label="生产日期">
+                <el-date-picker type="date" v-model="newProduct.production_date"></el-date-picker>
+            </el-form-item>
+            <el-form-item label="保质期 (天)">
+                <el-input type="number" v-model="newProduct.shelf_life"></el-input>
+            </el-form-item>
+            <el-form-item label="价格">
+                <el-input type="number" v-model="newProduct.price"></el-input>
+            </el-form-item>
+        </el-form>
+        <span slot="footer" class="dialog-footer">
+            <el-button @click="addDialogVisible = false">取 消</el-button>
+            <el-button type="primary" @click="addProduct">确 定</el-button>
+        </span>
+    </el-dialog>
+
+</div>
+
+<script>
+    new Vue({
+        el: '#app',
+        data: {
+            allProducts: [], // 所有商品
+            dialogVisible: false, // 控制编辑对话框可见性
+            addDialogVisible: false, // 控制添加对话框可见性
+            editedProduct: {}, // 存储正在编辑的商品
+            newProduct: { // 存储新商品信息
+                name: '',
+                count: 0,
+                production_date: '',
+                shelf_life: 0,
+                price: 0
+            },
+            nameFilter: '', // 商品名称筛选
+            statusFilter: '', // 状态筛选
+        },
+        computed: {
+            // 根据筛选条件过滤商品
+            filteredProducts() {
+                return this.allProducts.filter(product => {
+                    const matchesName = product.name.toLowerCase().includes(this.nameFilter.toLowerCase());
+                    const matchesStatus = this.statusFilter ? (product.is_expired ? '过期' : '未过期') === this.statusFilter : true;
+                    return matchesName && matchesStatus;
+                });
+            }
+        },
+        methods: {
+            // 格式化日期为 YYYY-MM-DD HH:mm:ss
+            formatDate(date) {
+                const d = new Date(date);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0'); // 月份从0开始
+                const day = String(d.getDate()).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                const seconds = String(d.getSeconds()).padStart(2, '0');
+
+                return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            },
+            // 页面加载时请求商品数据
+            fetchProducts() {
+                $.ajax({
+                    url: 'http://127.0.0.1:8081/api/v1/product/list',
+                    method: 'GET',
+                    success: (data) => {
+                        this.allProducts = data.data;
+                    },
+                    error: (error) => {
+                        console.error('Error fetching products:', error);
+                    }
+                });
+            },
+            // 打开编辑对话框
+            openEditForm(product) {
+                const { expiration_date, ...rest } = product; // 移除过期时间
+                this.editedProduct = { ...rest }; // 克隆产品以进行编辑
+                this.dialogVisible = true; // 显示对话框
+            },
+            // 更新商品信息
+            updateProduct() {
+                const updatedProduct = {
+                    id: parseInt(this.editedProduct.id),
+                    name: this.editedProduct.name,
+                    count: parseInt(this.editedProduct.count),
+                    production_date: this.editedProduct.production_date,
+                    shelf_life: parseInt(this.editedProduct.shelf_life),
+                    price: parseInt(this.editedProduct.price) // 确保 price 是数字类型
+                };
+                $.ajax({
+                    url: `http://127.0.0.1:8081/api/v1/product/${this.editedProduct.id}`, // 使用商品的 ID 进行更新
+                    method: 'PUT',
+                    contentType: 'application/json',
+                    data: JSON.stringify(updatedProduct),
+                    success: (response) => {
+                        alert('商品更新成功！');
+                        this.dialogVisible = false; // 隐藏对话框
+                        this.fetchProducts(); // 重新获取商品列表
+                    },
+                    error: (error) => {
+                        console.error('Error updating product:', error);
+                        alert('更新失败！');
+                    }
+                });
+            },
+            // 打开添加商品对话框
+            openAddProductForm() {
+                this.newProduct = { // 重置新商品信息
+                    name: '',
+                    count: 0,
+                    production_date: '',
+                    shelf_life: 0,
+                    price: 0
+                };
+                this.addDialogVisible = true; // 显示添加对话框
+            },
+            // 添加商品信息
+            addProduct() {
+                const addProduct = {
+                    name: this.newProduct.name,
+                    count: parseInt(this.newProduct.count),
+                    production_date: this.formatDate(this.newProduct.production_date),
+                    shelf_life: parseInt(this.newProduct.shelf_life),
+                    price: parseInt(this.newProduct.price) // 确保 price 是数字类型
+                };
+                $.ajax({
+                    url: 'http://127.0.0.1:8081/api/v1/product', // 使用 POST 请求添加商品
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(addProduct),
+                    success: (response) => {
+                        alert('商品添加成功！');
+                        this.addDialogVisible = false; // 隐藏对话框
+                        this.fetchProducts(); // 重新获取商品列表
+                    },
+                    error: (error) => {
+                        console.error('Error adding product:', error);
+                        alert('添加失败！');
+                    }
+                });
+            }
+        },
+        mounted() {
+            this.fetchProducts(); // 页面加载时请求商品数据
+        }
+    });
+</script>
+</body>
+</html>
