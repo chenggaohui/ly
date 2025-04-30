@@ -33,7 +33,5 @@ func InitConfig() {
 		panic(err)
 	}
 	config = cfg
-	println(config.MysqlConf.Host)
-	println(config.MysqlConf.Port)
 	return
 }

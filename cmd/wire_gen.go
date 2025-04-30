@@ -21,9 +21,15 @@ func CreateApp() *start.GinStart {
 	engine := NewGinEngine()
 	db := config.InitMysqlClient()
 	productRepository := repositories.NewProductRepository()
-	productService := services.NewProductService(db, productRepository)
+	productTypeRepository := repositories.NewProductTypeRepository()
+	wareHostRepository := repositories.NewWareHostRepository()
+	productService := services.NewProductService(db, productRepository, productTypeRepository, wareHostRepository)
 	productController := controllers.NewProductController(productService)
-	startControllers := controllers.NewController(productController)
+	wareHostService := services.NewWareHostService(db, wareHostRepository, productService)
+	wareHostController := controllers.NewWareHostController(wareHostService)
+	productTypeService := services.NewProductTypeService(db, productTypeRepository, productService)
+	productTypeController := controllers.NewProductTypeController(productTypeService)
+	startControllers := controllers.NewController(productController, wareHostController, productTypeController)
 	ginStart := start.NewGinStart(engine, startControllers)
 	return ginStart
 }

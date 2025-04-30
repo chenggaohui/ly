@@ -1,0 +1,238 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品列表</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .container {
+            padding: 20px;
+        }
+
+        .el-tag.success {
+            background-color: #67c23a;
+            color: white;
+        }
+
+        .el-tag.danger {
+            background-color: #f56c6c;
+            color: white;
+        }
+
+        .el-tag.warning {
+            background-color: #f5e804;
+            color: white;
+        }
+
+        .el-button--primary {
+            margin-right: 10px;
+        }
+
+        /* Adding spacing to table cells */
+        .el-table td, .el-table th {
+            padding: 12px 20px;
+            font-size: 14px;
+        }
+
+        #productTypeTable {
+            margin-top: 20px;
+            width: 100%;
+            border: 1px solid #ebeef5;
+            border-collapse: collapse;
+        }
+
+        #productTypeTable td, #productTypeTable th {
+            border: 1px solid #ebeef5;
+        }
+
+        .filters {
+            margin-bottom: 20px;
+        }
+
+        .filters .el-input, .filters .el-select {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="container">
+    <h2 class="mb-4">商品类型列表</h2>
+
+    <!-- 筛选条件 -->
+    <div class="filters">
+        <el-input v-model="nameFilter" placeholder="筛选商品类型名称"
+                  style="width: 200px; display: inline-block;"></el-input>
+
+        <!-- 添加商品按钮 -->
+        <button class="el-button el-button--primary" @click="openAddProductTypeForm">添加商品类型</button>
+    </div>
+
+    <!-- 商品类型表格 -->
+    <el-table :data="filteredProductTypes" id="productTypeTable" style="width: 100%;">
+        <el-table-column prop="name" label="商品类型名称"></el-table-column>
+        <el-table-column label="操作">
+            <template slot-scope="scope">
+                <el-button type="primary" @click="openEditForm(scope.row)">编辑</el-button>
+            </template>
+            <template slot-scope="scope">
+                <el-button type="primary" @click="deleteProductType(scope.row)">删除</el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+
+    <!-- 编辑对话框 -->
+    <el-dialog title="编辑商品类型" :visible.sync="dialogVisible">
+        <el-form :model="editedProductType">
+            <el-form-item label="商品类型名称">
+                <el-input v-model="editedProductType.name"></el-input>
+            </el-form-item>
+        </el-form>
+        <span slot="footer" class="dialog-footer">
+            <el-button @click="dialogVisible = false">取 消</el-button>
+            <el-button type="primary" @click="updateProductType">确 定</el-button>
+        </span>
+    </el-dialog>
+
+    <!-- 添加对话框 -->
+    <el-dialog title="添加商品类型" :visible.sync="addDialogVisible">
+        <el-form :model="newProductType">
+            <el-form-item label="商品类型名称">
+                <el-input v-model="newProductType.name"></el-input>
+            </el-form-item>
+        </el-form>
+        <span slot="footer" class="dialog-footer">
+            <el-button @click="addDialogVisible = false">取 消</el-button>
+            <el-button type="primary" @click="addProductType">确 定</el-button>
+        </span>
+    </el-dialog>
+
+</div>
+
+<script>
+    new Vue({
+        el: '#app',
+        data: {
+            allProductTypes: [], // 所有商品
+            dialogVisible: false, // 控制编辑对话框可见性
+            addDialogVisible: false, // 控制添加对话框可见性
+            editedProductType: {}, // 存储正在编辑的商品
+            newProductType: { // 存储新商品信息
+                name: '',
+            },
+            nameFilter: '', // 商品名称筛选
+        },
+        computed: {
+            // 根据筛选条件过滤商品
+            filteredProductTypes() {
+                return this.allProductTypes.filter(productType => {
+                    const matchesName = productType.name.toLowerCase().includes(this.nameFilter.toLowerCase());
+                    return matchesName;
+                });
+            }
+        },
+        methods: {
+            // 页面加载时请求商品数据
+            fetchProductTypes() {
+                $.ajax({
+                    url: 'http://127.0.0.1:8081/api/v1/product_type/list',
+                    method: 'GET',
+                    success: (data) => {
+                        this.allProductTypes = data.data;
+                    },
+                    error: (error) => {
+                        console.error('Error fetching productTypes:', error);
+                    }
+                });
+            },
+            // 打开编辑对话框
+            openEditForm(productType) {
+                this.editedProductType = {...productType}; // 克隆产品以进行编辑
+                this.dialogVisible = true; // 显示对话框
+            },
+            // 更新商品类型信息
+            updateProductType() {
+                const updatedProductType = {
+                    id: parseInt(this.editedProductType.id),
+                    name: this.editedProductType.name,
+                };
+                $.ajax({
+                    url: `http://127.0.0.1:8081/api/v1/product_type/${this.editedProductType.id}`, // 使用商品的 ID 进行更新
+                    method: 'PUT',
+                    contentType: 'application/json',
+                    data: JSON.stringify(updatedProductType),
+                    success: (response) => {
+                        alert('商品类型更新成功！');
+                        this.dialogVisible = false; // 隐藏对话框
+                        this.fetchProductTypes(); // 重新获取商品列表
+                    },
+                    error: (error) => {
+                        console.error('Error updating productType:', error);
+                        alert('更新失败！');
+                    }
+                });
+            },
+
+            // del商品类型信息
+            deleteProductType(productType) {
+                const updatedProductType = {
+                    id: parseInt(productType.id),
+                    name: productType.name,
+                };
+                $.ajax({
+                    url: `http://127.0.0.1:8081/api/v1/product_type/${productType.id}`, // 使用商品的 ID 进行更新
+                    method: 'DELETE',
+                    contentType: 'application/json',
+                    data: JSON.stringify(updatedProductType),
+                    success: (response) => {
+                        alert('商品类型删除成功！');
+                        this.dialogVisible = false; // 隐藏对话框
+                        this.fetchProductTypes(); // 重新获取商品列表
+                    },
+                    error: (error) => {
+                        console.error('Error updating productType:', error);
+                        alert('更新失败！');
+                    }
+                });
+            },
+            // 打开添加商品对话框
+            openAddProductTypeForm() {
+                this.newProductType = { // 重置新商品信息
+                    name: '',
+                };
+                this.addDialogVisible = true; // 显示添加对话框
+            },
+            // 添加商品信息
+            addProductType() {
+                const addProductType = {
+                    name: this.newProductType.name,
+                };
+                $.ajax({
+                    url: 'http://127.0.0.1:8081/api/v1/product_type', // 使用 POST 请求添加商品
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(addProductType),
+                    success: (response) => {
+                        alert('商品类型添加成功！');
+                        this.addDialogVisible = false; // 隐藏对话框
+                        this.fetchProductTypes(); // 重新获取商品列表
+                    },
+                    error: (error) => {
+                        console.error('Error adding productType:', error);
+                        alert('添加失败！');
+                    }
+                });
+            }
+        },
+        mounted() {
+            this.fetchProductTypes(); // 页面加载时请求商品数据
+        }
+    });
+</script>
+</body>
+</html>

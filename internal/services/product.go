@@ -14,11 +14,49 @@ type ProductService interface {
 	CreateProduct(ctx context.Context, product *vo.ProductVo) error
 	GetProductList(ctx context.Context, product *models.Product, pageNum, pageSize int) ([]*vo.ProductVo, int, error)
 	UpdateProduct(ctx context.Context, product *vo.ProductVo) error
+	GetProductByProductTypeId(ctx context.Context, productTypeId int) ([]*vo.ProductVo, error)
+	GetProductByWareHostId(ctx context.Context, wareHostId int) ([]*vo.ProductVo, error)
 }
 
 type productService struct {
-	db                *gorm.DB
-	productRepository repositories.ProductRepository
+	db                    *gorm.DB
+	productRepository     repositories.ProductRepository
+	productTypeRepository repositories.ProductTypeRepository
+	wareHostRepository    repositories.WareHostRepository
+}
+
+func (p *productService) GetProductByProductTypeId(ctx context.Context, productTypeId int) ([]*vo.ProductVo, error) {
+	records, err := p.productRepository.GetByProductById(ctx, p.db, productTypeId)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*vo.ProductVo, 0)
+	for _, record := range records {
+		productVo := ConvertProductVo(record)
+		productType, _ := p.productTypeRepository.GetProductTypeById(ctx, p.db, record.ProductTypeId)
+		productVo.ProductType = productType
+		wareHost, _ := p.wareHostRepository.GetProductTypeById(ctx, p.db, record.WareHostId)
+		productVo.WareHost = wareHost
+		result = append(result, productVo)
+	}
+	return result, nil
+}
+
+func (p *productService) GetProductByWareHostId(ctx context.Context, wareHostId int) ([]*vo.ProductVo, error) {
+	records, err := p.productRepository.GetByWareHostId(ctx, p.db, wareHostId)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*vo.ProductVo, 0)
+	for _, record := range records {
+		productVo := ConvertProductVo(record)
+		productType, _ := p.productTypeRepository.GetProductTypeById(ctx, p.db, record.ProductTypeId)
+		productVo.ProductType = productType
+		wareHost, _ := p.wareHostRepository.GetProductTypeById(ctx, p.db, record.WareHostId)
+		productVo.WareHost = wareHost
+		result = append(result, productVo)
+	}
+	return result, nil
 }
 
 func (p *productService) UpdateProduct(ctx context.Context, product *vo.ProductVo) error {
@@ -32,8 +70,13 @@ func (p *productService) GetProductList(ctx context.Context, product *models.Pro
 		return nil, 0, err
 	}
 	result := make([]*vo.ProductVo, 0)
-	for _, p := range products {
-		result = append(result, ConvertProductVo(p))
+	for _, record := range products {
+		productVo := ConvertProductVo(record)
+		productType, _ := p.productTypeRepository.GetProductTypeById(ctx, p.db, record.ProductTypeId)
+		productVo.ProductType = productType
+		wareHost, _ := p.wareHostRepository.GetProductTypeById(ctx, p.db, record.WareHostId)
+		productVo.WareHost = wareHost
+		result = append(result, productVo)
 	}
 	return result, total, nil
 }
@@ -51,14 +94,19 @@ func (p *productService) checkProduct() {
 	for i := range productVos {
 		po := ConvertProductPo(productVos[i])
 		productionDate := po.ProductionDate
-		lastData := productionDate.Add(24 * time.Hour * time.Duration(po.ShelfLife))
-		if lastData.Before(time.Now()) {
+		lastDate := productionDate.Add(24 * time.Hour * time.Duration(po.ShelfLife))
+		warnDate := time.Now().Add(-24 * time.Hour * time.Duration(po.WarnDate))
+		if lastDate.Before(time.Now()) {
 			po.IsExpired = -1
-			sub := time.Now().Sub(lastData)
+			sub := time.Now().Sub(lastDate)
 			split := strings.Split(sub.String(), ".")
 			po.ExpirationDate = split[0] + "s"
 			p.UpdateProduct(context.Background(), ConvertProductVo(po))
-		} else if po.IsExpired == -1 {
+		} else if warnDate.Before(po.ProductionDate) {
+			po.IsExpired = 2
+			po.ExpirationDate = " "
+			p.UpdateProduct(context.Background(), ConvertProductVo(po))
+		} else {
 			po.IsExpired = 1
 			po.ExpirationDate = " "
 			p.UpdateProduct(context.Background(), ConvertProductVo(po))
@@ -69,13 +117,17 @@ func (p *productService) checkProduct() {
 func NewProductService(
 	db *gorm.DB,
 	productRepository repositories.ProductRepository,
+	productTypeRepository repositories.ProductTypeRepository,
+	wareHostRepository repositories.WareHostRepository,
 ) ProductService {
 	impl := &productService{
-		db:                db,
-		productRepository: productRepository,
+		db:                    db,
+		productRepository:     productRepository,
+		productTypeRepository: productTypeRepository,
+		wareHostRepository:    wareHostRepository,
 	}
 	go func() {
-		timer := time.NewTicker(time.Second)
+		timer := time.NewTicker(time.Minute)
 		defer timer.Stop()
 		for {
 			select {

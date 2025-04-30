@@ -13,6 +13,9 @@ type Product struct {
 	ExpirationDate string    `json:"expiration_date"` // 过期时间
 	IsExpired      int       `json:"is_expired"`      // 过期标志
 	Price          float64   `json:"price"`           // 价格
+	WarnDate       int       `json:"warn_date"`       //过期提醒
+	ProductTypeId  int       `json:"product_type_id"` // 商品类型
+	WareHostId     int       `json:"ware_host_id"`    // 仓库
 }
 
 func (p Product) TableName() string {

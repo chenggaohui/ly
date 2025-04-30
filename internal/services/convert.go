@@ -8,20 +8,24 @@ import (
 
 func ConvertProductPo(p *vo.ProductVo) *models.Product {
 	parse, _ := time.ParseInLocation(time.DateTime, p.ProductionDate, time.Local)
-	IsExpired := 1
-	if p.IsExpired {
-		IsExpired = -1
-	}
-	return &models.Product{
+	pro := &models.Product{
 		Id:             p.Id,
 		Name:           p.Name,
 		Count:          p.Count,
 		ProductionDate: parse,
 		ShelfLife:      p.ShelfLife,
 		ExpirationDate: p.ExpirationDate,
-		IsExpired:      IsExpired,
+		IsExpired:      p.IsExpired,
 		Price:          p.Price,
+		WarnDate:       p.WarnDate,
 	}
+	if p.ProductType != nil {
+		pro.ProductTypeId = p.ProductType.Id
+	}
+	if p.WareHost != nil {
+		pro.WareHostId = p.WareHost.Id
+	}
+	return pro
 }
 
 func ConvertProductVo(p *models.Product) *vo.ProductVo {
@@ -32,8 +36,9 @@ func ConvertProductVo(p *models.Product) *vo.ProductVo {
 		ProductionDate: p.ProductionDate.Format(time.DateTime),
 		ShelfLife:      p.ShelfLife,
 		ExpirationDate: p.ExpirationDate,
-		IsExpired:      p.IsExpired == -1,
+		IsExpired:      p.IsExpired,
 		Price:          p.Price,
+		WarnDate:       p.WarnDate,
 	}
 	return result
 }
